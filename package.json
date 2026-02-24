@@ -1,0 +1,24 @@
+{
+  "name": "ai-image-review",
+  "version": "1.0.0",
+  "description": "Production-ready image moderation API using Claude vision or Google Cloud Vision",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "image-moderation",
+    "claude",
+    "anthropic",
+    "google-cloud-vision",
+    "content-moderation"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google-cloud/vision": "^5.3.4",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "morgan": "^1.10.0"
+  }
+}

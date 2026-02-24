@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Moderation Tester</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* --- Drop zone --- */
+    .dropzone {
+      border: 2px dashed #999;
+      border-radius: 12px;
+      padding: 3rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      background: #fff;
+    }
+    .dropzone.dragover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+    .dropzone p {
+      color: #666;
+      font-size: 0.95rem;
+    }
+    .dropzone .hint {
+      font-size: 0.8rem;
+      color: #999;
+      margin-top: 0.5rem;
+    }
+
+    /* Hidden file input */
+    #fileInput { display: none; }
+
+    /* --- Preview --- */
+    .preview {
+      margin-top: 1.5rem;
+      display: none;
+      align-items: flex-start;
+      gap: 1rem;
+      background: #fff;
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    .preview.visible { display: flex; }
+    .preview img {
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: 8px;
+      object-fit: contain;
+      background: #eee;
+    }
+    .preview .meta {
+      font-size: 0.85rem;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    /* --- Buttons --- */
+    .actions {
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.75rem;
+    }
+    button {
+      padding: 0.6rem 1.4rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-primary {
+      background: #3b82f6;
+      color: #fff;
+    }
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #333;
+    }
+
+    /* --- Result panel --- */
+    .result {
+      margin-top: 1.5rem;
+      display: none;
+    }
+    .result.visible { display: block; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 1rem;
+    }
+    .status-badge.pass { background: #dcfce7; color: #166534; }
+    .status-badge.fail { background: #fee2e2; color: #991b1b; }
+
+    .result-section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .result-section h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+      margin-bottom: 0.5rem;
+    }
+    .result-section pre {
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .result-section .flag { font-weight: 600; }
+    .flag.true { color: #dc2626; }
+    .flag.false { color: #16a34a; }
+
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      color: #991b1b;
+      font-size: 0.9rem;
+      margin-top: 1.5rem;
+    }
+
+    /* --- Spinner --- */
+    .spinner {
+      display: none;
+      margin-top: 1.5rem;
+      text-align: center;
+      color: #666;
+      font-size: 0.9rem;
+    }
+    .spinner.visible { display: block; }
+    .spinner::before {
+      content: "";
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid #ccc;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Image Moderation Tester</h1>
+
+    <!-- Drop zone -->
+    <div class="dropzone" id="dropzone">
+      <p>Drag &amp; drop an image here, or click to browse</p>
+      <p class="hint">Supports JPEG, PNG, WebP, GIF</p>
+    </div>
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif">
+
+    <!-- Preview -->
+    <div class="preview" id="preview">
+      <img id="previewImg" src="" alt="Preview">
+      <div class="meta" id="previewMeta"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn-primary" id="moderateBtn" disabled>Moderate</button>
+      <button class="btn-secondary" id="clearBtn" style="display:none">Clear</button>
+    </div>
+
+    <!-- Loading -->
+    <div class="spinner" id="spinner">Analyzing image&hellip;</div>
+
+    <!-- Error (network / non-JSON) -->
+    <div class="error-box" id="errorBox" style="display:none"></div>
+
+    <!-- Result -->
+    <div class="result" id="result">
+      <div id="statusBadge" class="status-badge"></div>
+
+      <div class="result-section" id="textSection">
+        <h3>Extracted Text</h3>
+        <pre id="extractedText"></pre>
+      </div>
+
+      <div class="result-section">
+        <h3>Profanity Check</h3>
+        <p>Flagged: <span class="flag" id="profanityFlag"></span></p>
+        <p id="profanityMatches"></p>
+      </div>
+
+      <div class="result-section">
+        <h3>Copyright Check</h3>
+        <p>Flagged: <span class="flag" id="copyrightFlag"></span></p>
+        <p>Confidence: <span id="copyrightConf"></span></p>
+        <p id="copyrightReason"></p>
+      </div>
+
+      <div class="result-section" id="errorsSection" style="display:none">
+        <h3>Errors</h3>
+        <pre id="errorsText"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MIME_MAP = {
+      "image/jpeg": "image/jpeg",
+      "image/png":  "image/png",
+      "image/webp": "image/webp",
+      "image/gif":  "image/gif",
+    };
+
+    // State
+    let currentFile = null;
+    let base64Data = null;
+
+    // DOM refs
+    const dropzone     = document.getElementById("dropzone");
+    const fileInput    = document.getElementById("fileInput");
+    const preview      = document.getElementById("preview");
+    const previewImg   = document.getElementById("previewImg");
+    const previewMeta  = document.getElementById("previewMeta");
+    const moderateBtn  = document.getElementById("moderateBtn");
+    const clearBtn     = document.getElementById("clearBtn");
+    const spinner      = document.getElementById("spinner");
+    const errorBox     = document.getElementById("errorBox");
+    const resultDiv    = document.getElementById("result");
+
+    // --- Drag & drop ---
+    dropzone.addEventListener("click", () => fileInput.click());
+
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+
+    dropzone.addEventListener("dragleave", () => {
+      dropzone.classList.remove("dragover");
+    });
+
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    // --- File handling ---
+    function handleFile(file) {
+      if (!MIME_MAP[file.type]) {
+        showError("Unsupported file type: " + file.type);
+        return;
+      }
+
+      currentFile = file;
+      hideError();
+      hideResult();
+
+      // Show preview
+      const url = URL.createObjectURL(file);
+      previewImg.src = url;
+      previewMeta.innerHTML =
+        "<strong>" + escapeHtml(file.name) + "</strong><br>" +
+        file.type + "<br>" +
+        formatBytes(file.size);
+      preview.classList.add("visible");
+
+      // Read as base64
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Strip the data URI prefix (e.g. "data:image/png;base64,")
+        base64Data = reader.result.split(",")[1];
+        moderateBtn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+
+      clearBtn.style.display = "inline-block";
+    }
+
+    // --- Moderate ---
+    moderateBtn.addEventListener("click", async () => {
+      if (!base64Data || !currentFile) return;
+
+      moderateBtn.disabled = true;
+      spinner.classList.add("visible");
+      hideError();
+      hideResult();
+
+      try {
+        const res = await fetch("/api/moderate-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            image: base64Data,
+            mimeType: currentFile.type,
+          }),
+        });
+
+        const data = await res.json();
+        renderResult(data);
+      } catch (err) {
+        showError("Request failed: " + err.message);
+      } finally {
+        spinner.classList.remove("visible");
+        moderateBtn.disabled = false;
+      }
+    });
+
+    // --- Clear ---
+    clearBtn.addEventListener("click", () => {
+      currentFile = null;
+      base64Data = null;
+      fileInput.value = "";
+      preview.classList.remove("visible");
+      previewImg.src = "";
+      moderateBtn.disabled = true;
+      clearBtn.style.display = "none";
+      hideError();
+      hideResult();
+    });
+
+    // --- Render result ---
+    function renderResult(data) {
+      const badge = document.getElementById("statusBadge");
+      badge.textContent = data.status;
+      badge.className = "status-badge " + data.status;
+
+      // Extracted text
+      const et = document.getElementById("extractedText");
+      et.textContent = data.extractedText ?? "(none)";
+
+      // Profanity
+      const pf = document.getElementById("profanityFlag");
+      pf.textContent = String(data.profanityCheck.flagged);
+      pf.className = "flag " + data.profanityCheck.flagged;
+
+      const pm = document.getElementById("profanityMatches");
+      pm.textContent = data.profanityCheck.matches.length
+        ? "Matches: " + data.profanityCheck.matches.join(", ")
+        : "";
+
+      // Copyright
+      const cf = document.getElementById("copyrightFlag");
+      cf.textContent = String(data.copyrightCheck.flagged);
+      cf.className = "flag " + data.copyrightCheck.flagged;
+
+      document.getElementById("copyrightConf").textContent = data.copyrightCheck.confidence;
+      document.getElementById("copyrightReason").textContent = data.copyrightCheck.reasoning;
+
+      // Errors array
+      const errSec = document.getElementById("errorsSection");
+      if (data.errors && data.errors.length) {
+        document.getElementById("errorsText").textContent = data.errors.join("\n");
+        errSec.style.display = "block";
+      } else {
+        errSec.style.display = "none";
+      }
+
+      resultDiv.classList.add("visible");
+    }
+
+    // --- Helpers ---
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.style.display = "block";
+    }
+    function hideError() { errorBox.style.display = "none"; }
+    function hideResult() { resultDiv.classList.remove("visible"); }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+      return (bytes / 1048576).toFixed(1) + " MB";
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+  </script>
+</body>
+</html>
