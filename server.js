@@ -7,6 +7,7 @@ const moderateRouter = require("./routes/moderate");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const TEST_MODE = process.env.TEST_MODE || false;
 
 // --- Middleware ---
 
@@ -16,8 +17,10 @@ app.use(morgan("dev"));
 // JSON body parsing with 10 MB limit for base64 images
 app.use(express.json({ limit: "10mb" }));
 
-// Serve the test UI from public/
-app.use(express.static("public"));
+if (TEST_MODE) {
+  // Serve the test UI from public/
+  app.use(express.static("public"));
+}
 
 // --- Routes ---
 
